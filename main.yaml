@@ -1,0 +1,62 @@
+- hosts: all
+  tasks:
+    - name: apt updateを実行(1/2)
+      become: yes
+      ansible.builtin.apt:
+        update_cache: yes
+
+    - name: Dockerのインストールに必要なパッケージをインストール
+      become: yes
+      ansible.builtin.apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+        state: present
+
+    - name: Dockerの公開鍵を追加
+      become: yes
+      ansible.builtin.apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Dockerリポジトリをaptソースに追加
+      become: yes
+      ansible.builtin.apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable
+        state: present
+
+    - name: apt updateを実行(2/2)
+      become: yes
+      ansible.builtin.apt:
+        update_cache: yes
+
+    - name: Dockerのインストールを実行
+      become: yes
+      ansible.builtin.apt:
+        name: docker-ce
+      notify:
+        - add_user_to_docker_group
+        - restart_docker_daemon
+      changed_when: yes
+
+    - name: DockerCompose(v2)のインストールを実行
+      become: yes
+      ansible.builtin.apt:
+        name: docker-compose-plugin
+      changed_when: yes
+
+  handlers:
+    - name: add_user_to_docker_group
+      become: yes
+      ansible.builtin.user:
+        name: "{{ansible_user_id}}"
+        groups: docker
+        append: yes
+
+    - name: restart_docker_daemon
+      become: yes
+      ansible.builtin.service:
+        name: docker
+        state: restarted
